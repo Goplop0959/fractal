@@ -1,0 +1,2015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Multibrot Deep Zoom</title>
+<link rel="icon" href="favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" href="cutecat.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<style>
+  :root {
+    --bg-0: #05060d;
+    --bg-1: #0b0e1c;
+    --bg-2: #12162b;
+    --panel: rgba(18, 22, 43, 0.72);
+    --panel-solid: #12162b;
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text: #e8ecf6;
+    --muted: #8b93ab;
+    --muted-2: #5d6580;
+    --amber: #fbbf24;
+    --amber-soft: rgba(251, 191, 36, 0.14);
+    --rose: #fb7185;
+    --rose-soft: rgba(251, 113, 133, 0.14);
+    --emerald: #34d399;
+    --emerald-soft: rgba(52, 211, 153, 0.14);
+    --indigo: #818cf8;
+    --indigo-soft: rgba(129, 140, 248, 0.14);
+    --radius: 14px;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-0);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 700px at 12% -8%, rgba(129, 140, 248, 0.16), transparent 60%),
+      radial-gradient(1000px 600px at 92% 4%, rgba(251, 113, 133, 0.12), transparent 62%),
+      linear-gradient(160deg, #05060d 0%, #0b0e1c 45%, #0a0d1e 100%);
+    background-attachment: fixed;
+  }
+
+  header.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border-bottom: 1px solid var(--border);
+    background: rgba(5, 6, 13, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .topbar-inner {
+    max-width: 1680px;
+    margin: 0 auto;
+    padding: 18px 26px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo {
+    flex: 0 0 auto;
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    background: linear-gradient(150deg, #0b0e1c, #12162b);
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 10px 26px -12px rgba(251, 191, 36, 0.55), 0 0 0 1px rgba(255,255,255,0.03) inset;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+  .logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+  }
+
+  .brand-text h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: #fff;
+    line-height: 1.1;
+  }
+  .brand-text h1 .accent {
+    background: linear-gradient(90deg, var(--amber), var(--rose));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .brand-text p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); border-color: rgba(251,191,36,0.28); }
+  .badge.indigo { background: var(--indigo-soft); color: var(--indigo); border-color: rgba(129,140,248,0.28); }
+  .badge.emerald { background: var(--emerald-soft); color: var(--emerald); border-color: rgba(52,211,153,0.28); }
+  .badge.rose { background: var(--rose-soft); color: var(--rose); border-color: rgba(251,113,133,0.28); }
+
+  main {
+    max-width: 1680px;
+    margin: 0 auto;
+    padding: 28px 26px 60px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 372px;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 1080px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.85), 0 2px 0 rgba(255,255,255,0.02) inset;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    overflow: hidden;
+  }
+  .card + .card { margin-top: 20px; }
+  .card-head {
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .card-head h2 {
+    margin: 0;
+    font-family: var(--serif);
+    font-size: 17px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .card-head .sub {
+    margin: 3px 0 0;
+    font-size: 11.5px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .card-body { padding: 18px 22px 22px; }
+  .card-body.tight { padding: 14px; }
+
+  .viewport {
+    position: relative;
+    height: clamp(340px, 62vh, 880px);
+    border-radius: 12px;
+    border: 1px solid var(--border-strong);
+    background: #000;
+    overflow: hidden;
+  }
+  #fractal {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+    user-select: none;
+  }
+  #fractal.dragging { cursor: grabbing; }
+
+  .pass-chip {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--amber);
+    background: rgba(5, 6, 13, 0.78);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 5px 10px;
+    backdrop-filter: blur(6px);
+    display: none;
+  }
+  .pass-chip.on { display: block; }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5, 6, 13, 0.72);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .overlay.on { display: flex; }
+  .overlay-inner { width: 320px; text-align: center; }
+  .overlay-pct {
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--amber);
+    margin: 0 0 12px;
+    letter-spacing: 0.02em;
+  }
+  .overlay-sub {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 12px 0 0;
+  }
+
+  .bar {
+    position: relative;
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+  .bar.thin { height: 6px; }
+  .bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--amber), var(--rose));
+    transition: width 0.18s ease-out;
+    box-shadow: 0 0 14px rgba(251, 191, 36, 0.45);
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+  }
+  @media (max-width: 720px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .stat {
+    background: rgba(5, 6, 13, 0.55);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 12px;
+  }
+  .stat .k {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted-2);
+  }
+  .stat .v {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    color: var(--text);
+    margin-top: 3px;
+  }
+  .stat .v.emerald { color: var(--emerald); }
+  .stat .v.rose { color: var(--rose); }
+  .stat .v.amber { color: var(--amber); }
+
+  .saved-note {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--emerald);
+    background: var(--emerald-soft);
+    border: 1px solid rgba(52, 211, 153, 0.3);
+    border-radius: 10px;
+    padding: 9px 12px;
+    word-break: break-all;
+    display: none;
+  }
+  .saved-note.on { display: block; }
+
+  .field { margin-bottom: 16px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 12.5px;
+    color: #c3cade;
+    margin-bottom: 7px;
+  }
+  .field .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 7px;
+  }
+  .field .row label { margin: 0; }
+  .field .val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--amber);
+  }
+  .hint { font-size: 11px; color: var(--muted-2); margin: 6px 0 0; }
+
+  input[type="number"], select {
+    width: 100%;
+    background: rgba(5, 6, 13, 0.6);
+    border: 1px solid var(--border-strong);
+    border-radius: 9px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 9px 11px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    appearance: none;
+  }
+  input[type="number"]:focus, select:focus {
+    border-color: rgba(251, 191, 36, 0.55);
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.12);
+  }
+  select {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b93ab' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+  select option { background: var(--panel-solid); color: var(--text); }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #fde68a, var(--amber));
+    border: 2px solid #0b0e1c;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+    cursor: grab;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #fde68a, var(--amber));
+    border: 2px solid #0b0e1c;
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+    cursor: grab;
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 18px 0; }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: rgba(5, 6, 13, 0.5);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .toggle-row .t { font-size: 13px; color: #d5dbeb; }
+  .toggle-row .s { font-size: 11px; color: var(--muted-2); margin-top: 2px; }
+
+  .switch {
+    position: relative;
+    width: 42px;
+    height: 24px;
+    flex: 0 0 auto;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch .track {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    transition: background 0.18s;
+  }
+  .switch .thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #e8ecf6;
+    transition: transform 0.18s, background 0.18s;
+  }
+  .switch input:checked + .track { background: linear-gradient(90deg, var(--amber), var(--rose)); }
+  .switch input:checked + .track + .thumb { transform: translateX(18px); background: #fff; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-family: var(--sans);
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 11px 16px;
+    cursor: pointer;
+    transition: transform 0.08s, background 0.15s, border-color 0.15s, opacity 0.15s;
+    user-select: none;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary {
+    background: linear-gradient(90deg, var(--amber), var(--rose));
+    color: #0b0e1c;
+  }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.13); }
+  .btn-danger {
+    background: var(--rose-soft);
+    color: var(--rose);
+    border-color: rgba(251, 113, 133, 0.4);
+  }
+  .btn-danger:hover:not(:disabled) { background: rgba(251, 113, 133, 0.22); }
+  .btn-sm {
+    width: auto;
+    font-size: 12.5px;
+    padding: 7px 13px;
+    border-radius: 8px;
+  }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .action-card {
+    background: linear-gradient(150deg, rgba(251, 191, 36, 0.1), rgba(251, 113, 133, 0.1));
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 18px;
+    box-shadow: 0 24px 60px -30px rgba(251, 113, 133, 0.5);
+  }
+  .action-card .btn + .btn { margin-top: 10px; }
+  .action-card .foot {
+    margin: 12px 0 0;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .action-card .foot code {
+    font-family: var(--mono);
+    color: var(--amber);
+  }
+
+  .share-card {
+    margin-top: 16px;
+    background: rgba(18, 22, 43, 0.72);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px 18px;
+  }
+  .share-card h3 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+  .share-card p.sub2 {
+    margin: 0 0 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .share-card p.sub2 b { color: var(--text); font-weight: 600; }
+  .share-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .share-btns .btn { flex: 1 1 40%; }
+  .share-url {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+    min-height: 58px;
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    word-break: break-all;
+  }
+  .share-note {
+    margin: 8px 0 0;
+    min-height: 16px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .share-note.ok { color: var(--emerald); }
+  .share-note.err { color: var(--rose); }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <img src="cutecat.png" alt="Fractal logo" width="46" height="46" />
+      </div>
+      <div class="brand-text">
+        <h1>Multibrot <span class="accent">Deep Zoom</span></h1>
+        <p>z &rarr; z&#8319; + c &middot; progressive preview &middot; worker pool &middot; PNG export</p>
+      </div>
+    </div>
+    <div class="badges">
+      <span class="badge amber" id="badge-res">8192&times;8192 px</span>
+      <span class="badge indigo" id="badge-iter">8000 iters</span>
+      <span class="badge emerald" id="badge-zoom">zoom 10^0.00</span>
+      <span class="badge rose" id="badge-prec">f64</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="grid">
+    <section>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Fractal Viewport</h2>
+            <p class="sub">Drag to pan &middot; click to zoom in &middot; scroll to zoom</p>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost btn-sm" id="btn-zoom-in">Zoom in</button>
+            <button class="btn btn-ghost btn-sm" id="btn-zoom-out">Zoom out</button>
+            <button class="btn btn-ghost btn-sm" id="btn-reset">Reset</button>
+          </div>
+        </div>
+        <div class="card-body tight">
+          <div class="viewport">
+            <canvas id="fractal"></canvas>
+            <div class="pass-chip" id="pass-chip">preview pass</div>
+            <div class="overlay" id="overlay">
+              <div class="overlay-inner">
+                <p class="overlay-pct" id="overlay-pct">Rendering 0.000%</p>
+                <div class="bar"><div class="bar-fill" id="overlay-bar"></div></div>
+                <p class="overlay-sub" id="overlay-sub">full pass&hellip;</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Render Pipeline</h2>
+        </div>
+        <div class="card-body">
+          <div class="field">
+            <div class="row">
+              <label>Progress</label>
+              <span class="val" id="stat-progress">0.000%</span>
+            </div>
+            <div class="bar"><div class="bar-fill" id="main-bar"></div></div>
+          </div>
+
+          <div class="stat-grid" style="margin-top:16px;">
+            <div class="stat"><div class="k">Resolution</div><div class="v" id="stat-res">8192&sup2;</div></div>
+            <div class="stat"><div class="k">Iterations</div><div class="v" id="stat-iter">8000</div></div>
+            <div class="stat"><div class="k">Render time</div><div class="v" id="stat-time">&mdash;</div></div>
+            <div class="stat"><div class="k">Zoom depth</div><div class="v" id="stat-zoom">10^0.00</div></div>
+          </div>
+
+          <div class="stat-grid" style="margin-top:10px;">
+            <div class="stat"><div class="k">Workers</div><div class="v" id="stat-workers">auto</div></div>
+            <div class="stat"><div class="k">Precision</div><div class="v" id="stat-prec">float64</div></div>
+            <div class="stat"><div class="k">Pass</div><div class="v" id="stat-pass">&mdash;</div></div>
+            <div class="stat"><div class="k">Status</div><div class="v emerald" id="stat-status">idle</div></div>
+          </div>
+
+          <div class="saved-note" id="saved-note"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <div class="card-head"><h2>Controls</h2></div>
+        <div class="card-body">
+          <div class="field">
+            <label for="preset">Preset</label>
+            <select id="preset">
+              <option value="">Choose a preset</option>
+            </select>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="field">
+            <div class="row"><label for="power">Power (n)</label><span class="val" id="power-val">2</span></div>
+            <input type="range" id="power" min="2" max="8" step="1" value="2" />
+          </div>
+
+          <div class="field">
+            <div class="row"><label for="iters">Max iterations</label><span class="val" id="iters-val">8000</span></div>
+            <input type="range" id="iters" min="100" max="100000" step="100" value="8000" />
+          </div>
+
+          <div class="field">
+            <div class="row"><label for="detail">Detail (px)</label><span class="val" id="detail-val">8192</span></div>
+            <input type="range" id="detail" min="512" max="65536" step="512" value="8192" />
+            <p class="hint">Max 65536 &middot; 65536&sup2; &asymp; 4.3 gigapixels &middot; needs large RAM.</p>
+          </div>
+
+          <div class="field">
+            <div class="row"><label for="bound">Escape bound</label><span class="val" id="bound-val">2</span></div>
+            <input type="range" id="bound" min="2" max="16" step="1" value="2" />
+          </div>
+
+          <div class="field">
+            <label for="colormap">Colormap</label>
+            <select id="colormap"></select>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="toggle-row">
+            <div>
+              <div class="t">Progressive preview</div>
+              <div class="s">Low-res pass first, then refine</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="progressive" checked />
+              <span class="track"></span>
+              <span class="thumb"></span>
+            </label>
+          </div>
+
+          <div class="toggle-row">
+            <div>
+              <div class="t">Auto precision</div>
+              <div class="s">Double-double past 10&#8315;&sup1;&sup3;</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="autoprec" checked />
+              <span class="track"></span>
+              <span class="thumb"></span>
+            </label>
+          </div>
+
+          <div class="field" style="margin-top:16px;">
+            <div class="row"><label for="workers">Worker count</label><span class="val" id="workers-val">auto</span></div>
+            <input type="range" id="workers" min="0" max="32" step="1" value="0" />
+            <p class="hint">0 = auto (hardware concurrency).</p>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="two-col">
+            <div class="field">
+              <label for="cx">Center X</label>
+              <input type="number" step="any" id="cx" value="-0.5" />
+            </div>
+            <div class="field">
+              <label for="cy">Center Y</label>
+              <input type="number" step="any" id="cy" value="0" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="scale">Scale (width)</label>
+            <input type="number" step="any" id="scale" value="1.6" />
+          </div>
+        </div>
+      </div>
+
+      <div class="action-card" style="margin-top:20px;">
+        <button class="btn btn-primary" id="btn-render">Render</button>
+        <button class="btn btn-ghost" id="btn-save">Render &amp; Save PNG</button>
+        <button class="btn btn-danger" id="btn-cancel" style="display:none;">Cancel render</button>
+        <p class="foot">Saves as <code>fractal-&lt;uuid&gt;.png</code></p>
+      </div>
+
+      <div class="share-card">
+        <h3>Share this view</h3>
+        <p class="sub2">Two options, both copied to the clipboard as one link:<br />
+          <b>Fast</b> &mdash; the settings, position and zoom as text (opens and renders exactly).<br />
+          <b>Slow</b> &mdash; a 7&times;3 thumbnail of the picture, in the same envelope.</p>
+        <div class="share-btns">
+          <button class="btn btn-ghost" id="btn-share-fast">Fast share</button>
+          <button class="btn btn-ghost" id="btn-share-slow">Slow share</button>
+          <button class="btn btn-ghost" id="btn-share-copy">Copy URL</button>
+        </div>
+        <textarea class="share-url" id="share-url" readonly rows="3" placeholder="Pick a share option to build a link&hellip;"></textarea>
+        <p class="share-note" id="share-note"></p>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+/* ============================================================
+   Fractal data: presets + colormaps
+   ============================================================ */
+const PRESETS = [
+  { name: "Classic Multibrot", cx: -0.5, cy: 0, scale: 1.6, power: 2 },
+  { name: "Cubic Bloom", cx: -0.2, cy: 0, scale: 1.4, power: 3 },
+  { name: "Quartic Spiral", cx: 0, cy: 0, scale: 1.3, power: 4 },
+  { name: "Seahorse Valley", cx: -0.743643887037151, cy: 0.13182590420533, scale: 0.0008, power: 2 },
+  { name: "Elephant Valley", cx: 0.2925755, cy: 0.0149977, scale: 0.0006, power: 2 },
+  { name: "Pentabrot Star", cx: -0.1, cy: 0, scale: 1.2, power: 5 },
+  { name: "Deep Spiral (10^-14)", cx: -0.7436438870371587, cy: 0.1318259042053119, scale: 1e-14, power: 2 }
+];
+
+const COLORMAPS = [
+  { id: "magma", label: "Magma", stops: [[0,0,4],[40,11,84],[101,21,110],[159,42,99],[212,72,66],[245,125,21],[250,193,39],[252,253,191]] },
+  { id: "ember", label: "Ember", stops: [[8,6,20],[60,12,40],[130,30,40],[200,70,30],[240,140,40],[255,210,120],[255,245,210]] },
+  { id: "ocean", label: "Ocean", stops: [[2,10,30],[8,40,80],[10,90,130],[30,150,170],[110,210,200],[200,245,235]] },
+  { id: "forest", label: "Forest", stops: [[4,18,10],[12,60,30],[30,110,50],[90,170,70],[180,220,120],[240,250,200]] }
+];
+
+/* ============================================================
+   Limits / defaults
+   ============================================================ */
+const MAX_DETAIL = 65536;    // max pixels per side
+const MIN_DETAIL = 512;
+const DEFAULT_DETAIL = 8192; // default pixels per side
+const DEFAULT_ITERS = 8000;
+const MAX_ITERS = 100000;
+const MAX_WORKERS = 32;
+
+/* ============================================================
+   UUID v4
+   ============================================================ */
+function uuid() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [];
+  for (let i = 0; i < 256; i++) hex.push((i + 0x100).toString(16).slice(1));
+  return (
+    hex[bytes[0]] + hex[bytes[1]] + "-" +
+    hex[bytes[2]] + hex[bytes[3]] + "-" +
+    hex[bytes[4]] + hex[bytes[5]] + "-" +
+    hex[bytes[6]] + hex[bytes[7]] + "-" +
+    hex[bytes[8]] + hex[bytes[9]] + hex[bytes[10]] + hex[bytes[11]] +
+    hex[bytes[12]] + hex[bytes[13]] + hex[bytes[14]] + hex[bytes[15]]
+  );
+}
+
+/* ============================================================
+   Worker source (inlined as a Blob so it works from any origin)
+   ============================================================ */
+const WORKER_SOURCE = `
+"use strict";
+
+/* Normalize ANY input into a safe [hi, lo] double-double pair. */
+function dd(x) {
+  if (x === null || x === undefined) return [0, 0];
+  if (typeof x === "number") return [x, 0];
+  if (typeof x === "object") {
+    var hi = typeof x[0] === "number" ? x[0] : 0;
+    var lo = typeof x[1] === "number" ? x[1] : 0;
+    return [hi, lo];
+  }
+  return [0, 0];
+}
+
+function ddAdd(a, b) {
+  a = dd(a); b = dd(b);
+  var s = a[0] + b[0];
+  var v = s - a[0];
+  var e = (a[0] - (s - v)) + (b[0] - v) + a[1] + b[1];
+  return [s, e];
+}
+function ddSub(a, b) {
+  b = dd(b);
+  return ddAdd(a, [-b[0], -b[1]]);
+}
+function ddMul(a, b) {
+  a = dd(a); b = dd(b);
+  var SPLIT = 134217729;
+  var ah = a[0] * SPLIT; var al = a[0] - ah + ah;
+  var bh = b[0] * SPLIT; var bl = b[0] - bh + bh;
+  var p = a[0] * b[0];
+  var e = ((ah * bh - p) + ah * bl + al * bh) + al * bl + a[0] * b[1] + a[1] * b[0];
+  var s = p + e;
+  return [s, e - (s - p)];
+}
+function ddSqr(a) { return ddMul(a, a); }
+function ddFromNumber(x) { return [x, 0]; }
+
+function mandelbrotDD(cx, cy, maxIter, bound, power) {
+  cx = dd(cx); cy = dd(cy);
+  var zr = [0, 0], zi = [0, 0];
+  var boundSq = bound * bound;
+  var p = Math.max(2, Math.floor(power));
+  for (var i = 0; i < maxIter; i++) {
+    var zr2 = ddSqr(zr);
+    var zi2 = ddSqr(zi);
+    if (zr2[0] + zi2[0] > boundSq) return i;
+    var nr = zr, ni = zi;
+    for (var k = 1; k < p; k++) {
+      var t = ddSub(ddMul(nr, zr), ddMul(ni, zi));
+      ni = ddAdd(ddMul(nr, zi), ddMul(ni, zr));
+      nr = t;
+    }
+    zr = ddAdd(nr, cx);
+    zi = ddAdd(ni, cy);
+  }
+  return maxIter;
+}
+
+function mandelbrotF64(cx, cy, maxIter, bound, power) {
+  var zr = 0, zi = 0;
+  var boundSq = bound * bound;
+  var p = Math.max(2, Math.floor(power));
+  for (var i = 0; i < maxIter; i++) {
+    var zr2 = zr * zr, zi2 = zi * zi;
+    if (zr2 + zi2 > boundSq) return i;
+    var nr = zr, ni = zi;
+    for (var k = 1; k < p; k++) {
+      var t = nr * zr - ni * zi;
+      ni = nr * zi + ni * zr;
+      nr = t;
+    }
+    zr = nr + cx;
+    zi = ni + cy;
+  }
+  return maxIter;
+}
+
+function sampleColormap(stops, t) {
+  if (!stops || stops.length === 0) return [0, 0, 0];
+  if (stops.length === 1) return stops[0];
+  var clamped = t < 0 ? 0 : t > 1 ? 1 : t;
+  var scaled = clamped * (stops.length - 1);
+  var i = Math.floor(scaled);
+  if (i < 0) i = 0;
+  if (i > stops.length - 2) i = stops.length - 2;
+  var f = scaled - i;
+  var a = stops[i];
+  var b = stops[i + 1];
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * f),
+    Math.round(a[1] + (b[1] - a[1]) * f),
+    Math.round(a[2] + (b[2] - a[2]) * f)
+  ];
+}
+
+self.onmessage = function (e) {
+  try {
+    var job = e.data || {};
+    var y0 = job.y0 | 0, y1 = job.y1 | 0, width = job.width | 0, height = job.height | 0;
+    var centerX = job.centerX, centerY = job.centerY, scale = job.scale;
+    var power = job.power, maxIterations = job.maxIterations, bound = job.bound;
+    var colormap = job.colormap, useDD = job.useDD;
+
+    var rows = y1 - y0;
+    if (rows <= 0 || width <= 0 || height <= 0) {
+      self.postMessage({ y0: y0, width: width, rows: 0, buffer: new ArrayBuffer(0) });
+      return;
+    }
+
+    var halfW = scale / 2;
+    var halfH = ((scale * height) / width) / 2;
+    var logBound = Math.log(bound);
+    var logPower = Math.log(Math.max(2, power));
+
+    var data = new Uint8ClampedArray(rows * width * 4);
+
+    var cxDD = useDD ? ddFromNumber(centerX) : null;
+    var cyDD = useDD ? ddFromNumber(centerY) : null;
+
+    var idx = 0;
+    for (var ly = 0; ly < rows; ly++) {
+      var py = y0 + ly;
+      var yOffset = halfH - (py / height) * (halfH * 2);
+      var yF = centerY + yOffset;
+      var yDD = (useDD && cyDD) ? ddAdd(cyDD, ddFromNumber(yOffset)) : null;
+
+      for (var px = 0; px < width; px++) {
+        var xOffset = -halfW + (px / width) * (halfW * 2);
+        var xF = centerX + xOffset;
+
+        var iter;
+        if (useDD && cxDD && yDD) {
+          var xDD = ddAdd(cxDD, ddFromNumber(xOffset));
+          iter = mandelbrotDD(xDD, yDD, maxIterations, bound, power);
+        } else {
+          iter = mandelbrotF64(xF, yF, maxIterations, bound, power);
+        }
+
+        if (iter >= maxIterations) {
+          data[idx] = 0; data[idx + 1] = 0; data[idx + 2] = 0; data[idx + 3] = 255;
+        } else {
+          var mag = Math.sqrt(xF * xF + yF * yF) || 1;
+          var nu = iter + 1 - Math.log(Math.log(mag) / logBound) / logPower;
+          var smooth = (isFinite(nu) && nu > 0) ? nu : iter;
+          var t = (smooth / maxIterations) * 4;
+          var frac = t - Math.floor(t);
+          var rgb = sampleColormap(colormap, frac);
+          data[idx] = rgb[0]; data[idx + 1] = rgb[1]; data[idx + 2] = rgb[2]; data[idx + 3] = 255;
+        }
+        idx += 4;
+      }
+    }
+
+    self.postMessage({ y0: y0, width: width, rows: rows, buffer: data.buffer }, [data.buffer]);
+  } catch (err) {
+    self.postMessage({
+      y0: (e.data && e.data.y0) | 0,
+      width: 0,
+      rows: 0,
+      buffer: new ArrayBuffer(0),
+      error: String(err)
+    });
+  }
+};
+`;
+
+let workerBlobUrl = null;
+function getWorkerBlobUrl() {
+  if (!workerBlobUrl) {
+    const blob = new Blob([WORKER_SOURCE], { type: "application/javascript" });
+    workerBlobUrl = URL.createObjectURL(blob);
+  }
+  return workerBlobUrl;
+}
+
+/* ============================================================
+   State
+   ============================================================ */
+const state = {
+  power: 2,
+  maxIterations: DEFAULT_ITERS,
+  detail: DEFAULT_DETAIL,
+  bound: 2,
+  colormapId: "magma",
+  centerX: -0.5,
+  centerY: 0,
+  scale: 1.6,
+  progressive: true,
+  autoPrecision: true,
+  workerCount: 0
+};
+
+let pool = [];
+let poolSize = 0;
+let token = 0;
+let isRendering = false;
+
+/* ============================================================
+   DOM refs
+   ============================================================ */
+const canvas = document.getElementById("fractal");
+const overlay = document.getElementById("overlay");
+const overlayPct = document.getElementById("overlay-pct");
+const overlayBar = document.getElementById("overlay-bar");
+const overlaySub = document.getElementById("overlay-sub");
+const passChip = document.getElementById("pass-chip");
+const mainBar = document.getElementById("main-bar");
+const statProgress = document.getElementById("stat-progress");
+const statRes = document.getElementById("stat-res");
+const statIter = document.getElementById("stat-iter");
+const statTime = document.getElementById("stat-time");
+const statZoom = document.getElementById("stat-zoom");
+const statWorkers = document.getElementById("stat-workers");
+const statPrec = document.getElementById("stat-prec");
+const statPass = document.getElementById("stat-pass");
+const statStatus = document.getElementById("stat-status");
+const savedNote = document.getElementById("saved-note");
+const badgeRes = document.getElementById("badge-res");
+const badgeIter = document.getElementById("badge-iter");
+const badgeZoom = document.getElementById("badge-zoom");
+const badgePrec = document.getElementById("badge-prec");
+const btnRender = document.getElementById("btn-render");
+const btnSave = document.getElementById("btn-save");
+const btnCancel = document.getElementById("btn-cancel");
+
+/* ============================================================
+   UI helpers
+   ============================================================ */
+function fmtPct(p) { return (p * 100).toFixed(3) + "%"; }
+
+function setProgress(p) {
+  const pct = Math.max(0, Math.min(1, p));
+  const text = fmtPct(pct);
+  mainBar.style.width = (pct * 100) + "%";
+  overlayBar.style.width = (pct * 100) + "%";
+  statProgress.textContent = text;
+  overlayPct.textContent = "Rendering " + text;
+}
+
+function setStatus(s) {
+  statStatus.textContent = s;
+  statStatus.className = "v " + (
+    s === "idle" || s === "done" ? "emerald" :
+    s === "cancelled" ? "rose" : "amber"
+  );
+}
+
+function setPass(p) {
+  statPass.textContent = p || "\u2014";
+  if (p === "preview") {
+    passChip.classList.add("on");
+    overlaySub.textContent = "preview pass\u2026";
+  } else {
+    passChip.classList.remove("on");
+    overlaySub.textContent = useDD() ? "full pass (double-double)\u2026" : "full pass\u2026";
+  }
+}
+
+function setRendering(on) {
+  isRendering = on;
+  overlay.classList.toggle("on", on);
+  btnRender.disabled = on;
+  btnSave.disabled = on;
+  btnCancel.style.display = on ? "inline-flex" : "none";
+}
+
+function useDD() {
+  return state.autoPrecision && state.scale < 1e-13;
+}
+
+function refreshBadges() {
+  const zoomMag = Math.log10(1.6 / state.scale);
+  badgeRes.textContent = state.detail + "\u00d7" + state.detail + " px";
+  badgeIter.textContent = state.maxIterations + " iters";
+  badgeZoom.textContent = "zoom 10^" + zoomMag.toFixed(2);
+  badgePrec.textContent = useDD() ? "dd (106-bit)" : "f64";
+
+  statRes.textContent = state.detail + "\u00b2";
+  statIter.textContent = String(state.maxIterations);
+  statZoom.textContent = "10^" + zoomMag.toFixed(2);
+  statWorkers.textContent = state.workerCount === 0 ? "auto" : String(state.workerCount);
+  statPrec.textContent = useDD() ? "double-double" : "float64";
+}
+
+/* ============================================================
+   Worker pool
+   ============================================================ */
+function resolveWorkerCount(n) {
+  if (n > 0) return Math.min(MAX_WORKERS, n);
+  const hc = (typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 4;
+  return Math.max(1, Math.min(MAX_WORKERS, hc));
+}
+
+function ensurePool(n) {
+  const want = resolveWorkerCount(n);
+  if (pool.length === want && poolSize === want) return pool;
+  pool.forEach(function (w) { w.terminate(); });
+  pool = [];
+  poolSize = 0;
+  const url = getWorkerBlobUrl();
+  for (let i = 0; i < want; i++) {
+    pool.push(new Worker(url));
+  }
+  poolSize = want;
+  return pool;
+}
+
+/* ============================================================
+   Render a single pass
+   ============================================================ */
+function renderPass(passParams, onProgress, myToken) {
+  return new Promise(function (resolve) {
+    const width = passParams.width;
+    const height = passParams.height;
+    const workers = ensurePool(state.workerCount);
+    const n = workers.length;
+
+    const output = document.createElement("canvas");
+    output.width = width;
+    output.height = height;
+    const outCtx = output.getContext("2d");
+    if (!outCtx) { resolve(null); return; }
+
+    /* Strip height scales with image size so huge renders stay responsive.
+       Capped so a single strip is never larger than a few MB of RGBA. */
+    const stripHeight = Math.max(
+      1,
+      Math.min(
+        256,
+        Math.ceil(height / (n * 8))
+      )
+    );
+    const strips = [];
+    for (let y = 0; y < height; y += stripHeight) {
+      strips.push({ y0: y, y1: Math.min(y + stripHeight, height) });
+    }
+
+    let nextStrip = 0;
+    let completed = 0;
+    const total = strips.length;
+    let settled = false;
+    let lastProgressAt = performance.now();
+
+    const watchdog = window.setInterval(function () {
+      if (settled) return;
+      if (myToken !== token) { finish(null); return; }
+      if (performance.now() - lastProgressAt > 60000) { finish(output); }
+    }, 1000);
+
+    function finish(result) {
+      if (settled) return;
+      settled = true;
+      window.clearInterval(watchdog);
+      workers.forEach(function (w) { w.onmessage = null; w.onerror = null; });
+      resolve(result);
+    }
+
+    function dispatch(worker) {
+      if (settled || myToken !== token) return;
+      if (nextStrip >= strips.length) return;
+      const strip = strips[nextStrip++];
+      worker.postMessage({
+        y0: strip.y0,
+        y1: strip.y1,
+        width: width,
+        height: height,
+        centerX: passParams.centerX,
+        centerY: passParams.centerY,
+        scale: passParams.scale,
+        power: passParams.power,
+        maxIterations: passParams.maxIterations,
+        bound: passParams.bound,
+        colormap: passParams.colormap,
+        useDD: passParams.useDD
+      });
+    }
+
+    workers.forEach(function (worker) {
+      worker.onmessage = function (e) {
+        if (settled) return;
+        if (myToken !== token) { finish(null); return; }
+        const d = e.data;
+        if (d && d.rows > 0 && d.width > 0 && d.buffer && d.buffer.byteLength > 0) {
+          try {
+            const img = new ImageData(new Uint8ClampedArray(d.buffer), d.width, d.rows);
+            outCtx.putImageData(img, 0, d.y0);
+          } catch (err) {
+            /* skip malformed strip */
+          }
+        }
+        completed++;
+        lastProgressAt = performance.now();
+        onProgress(completed / total);
+        if (completed === total) finish(output);
+        else dispatch(worker);
+      };
+      worker.onerror = function () {
+        if (settled) return;
+        completed++;
+        lastProgressAt = performance.now();
+        onProgress(completed / total);
+        if (completed === total) finish(output);
+        else dispatch(worker);
+      };
+      dispatch(worker);
+    });
+  });
+}
+
+/* ============================================================
+   Full render (preview + full pass)
+   ============================================================ */
+async function render(save) {
+  const myToken = ++token;
+  setRendering(true);
+  setStatus("rendering");
+  savedNote.classList.remove("on");
+  savedNote.textContent = "";
+  setProgress(0);
+  const start = performance.now();
+
+  const cm = COLORMAPS.find(function (c) { return c.id === state.colormapId; }) || COLORMAPS[0];
+  const dd = useDD();
+
+  const base = {
+    centerX: state.centerX,
+    centerY: state.centerY,
+    scale: state.scale,
+    power: state.power,
+    bound: state.bound,
+    colormap: cm.stops,
+    useDD: dd
+  };
+
+  if (state.progressive) {
+    setPass("preview");
+    const previewDim = Math.min(1024, state.detail);
+    const previewCanvas = await renderPass(
+      Object.assign({}, base, {
+        width: previewDim,
+        height: previewDim,
+        maxIterations: Math.min(state.maxIterations, 800)
+      }),
+      function (p) { setProgress(p * 0.12); },
+      myToken
+    );
+
+    if (!previewCanvas || myToken !== token) return;
+
+    canvas.width = previewDim;
+    canvas.height = previewDim;
+    const pctx = canvas.getContext("2d");
+    if (pctx) {
+      pctx.imageSmoothingEnabled = true;
+      pctx.drawImage(previewCanvas, 0, 0);
+    }
+
+    await new Promise(function (r) {
+      requestAnimationFrame(function () { requestAnimationFrame(function () { r(); }); });
+    });
+    if (myToken !== token) return;
+  }
+
+  setPass("full");
+  const progressBase = state.progressive ? 0.12 : 0;
+  const progressSpan = 1 - progressBase;
+
+  const output = await renderPass(
+    Object.assign({}, base, {
+      width: state.detail,
+      height: state.detail,
+      maxIterations: state.maxIterations
+    }),
+    function (p) { setProgress(progressBase + p * progressSpan); },
+    myToken
+  );
+
+  if (!output || myToken !== token) return;
+
+  canvas.width = state.detail;
+  canvas.height = state.detail;
+  const ctx = canvas.getContext("2d");
+  if (ctx) ctx.drawImage(output, 0, 0);
+
+  statTime.textContent = ((performance.now() - start) / 1000).toFixed(2) + "s";
+  setProgress(1);
+  setPass(null);
+  setRendering(false);
+  setStatus("done");
+
+  if (save) {
+    const name = "fractal-" + uuid() + ".png";
+    canvas.toBlob(function (blob) {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      savedNote.textContent = "Saved \u2192 " + name;
+      savedNote.classList.add("on");
+    }, "image/png");
+  }
+}
+
+function cancelRender() {
+  token++;
+  setRendering(false);
+  setPass(null);
+  setStatus("cancelled");
+}
+
+/* ============================================================
+   Canvas interaction: pan / click-zoom / wheel-zoom
+   ============================================================ */
+const drag = { active: false, moved: false, startX: 0, startY: 0, startCX: 0, startCY: 0, startScale: 1.6 };
+
+function clientToComplex(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const px = (clientX - rect.left) / rect.width;
+  const py = (clientY - rect.top) / rect.height;
+  return {
+    nx: state.centerX + (px - 0.5) * state.scale,
+    ny: state.centerY - (py - 0.5) * state.scale
+  };
+}
+
+canvas.addEventListener("pointerdown", function (e) {
+  if (e.button !== 0) return;
+  drag.active = true;
+  drag.moved = false;
+  drag.startX = e.clientX;
+  drag.startY = e.clientY;
+  drag.startCX = state.centerX;
+  drag.startCY = state.centerY;
+  drag.startScale = state.scale;
+  canvas.classList.add("dragging");
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+});
+
+canvas.addEventListener("pointermove", function (e) {
+  if (!drag.active) return;
+  const dx = e.clientX - drag.startX;
+  const dy = e.clientY - drag.startY;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) drag.moved = true;
+  const rect = canvas.getBoundingClientRect();
+  const upx = drag.startScale / rect.width;
+  const upy = drag.startScale / rect.height;
+  state.centerX = drag.startCX - dx * upx;
+  state.centerY = drag.startCY + dy * upy;
+  syncInputs();
+});
+
+function endDrag(e) {
+  if (!drag.active) return;
+  drag.active = false;
+  canvas.classList.remove("dragging");
+  try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+
+  if (drag.moved) {
+    render(false);
+  } else {
+    const c = clientToComplex(e.clientX, e.clientY);
+    state.centerX = c.nx;
+    state.centerY = c.ny;
+    state.scale = state.scale * 0.5;
+    syncInputs();
+    render(false);
+  }
+}
+canvas.addEventListener("pointerup", endDrag);
+canvas.addEventListener("pointercancel", endDrag);
+
+canvas.addEventListener("wheel", function (e) {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 0.8 : 1.25;
+  const c = clientToComplex(e.clientX, e.clientY);
+  const newScale = Math.max(1e-30, state.scale * factor);
+  const rect = canvas.getBoundingClientRect();
+  const px = (e.clientX - rect.left) / rect.width;
+  const py = (e.clientY - rect.top) / rect.height;
+  state.centerX = c.nx - (px - 0.5) * newScale;
+  state.centerY = c.ny + (py - 0.5) * newScale;
+  state.scale = newScale;
+  syncInputs();
+  render(false);
+}, { passive: false });
+
+/* ============================================================
+   Controls wiring
+   ============================================================ */
+const presetSel = document.getElementById("preset");
+const colormapSel = document.getElementById("colormap");
+const powerRange = document.getElementById("power");
+const itersRange = document.getElementById("iters");
+const detailRange = document.getElementById("detail");
+const boundRange = document.getElementById("bound");
+const workersRange = document.getElementById("workers");
+const progressiveChk = document.getElementById("progressive");
+const autoprecChk = document.getElementById("autoprec");
+const cxInput = document.getElementById("cx");
+const cyInput = document.getElementById("cy");
+const scaleInput = document.getElementById("scale");
+
+PRESETS.forEach(function (p) {
+  const opt = document.createElement("option");
+  opt.value = p.name;
+  opt.textContent = p.name;
+  presetSel.appendChild(opt);
+});
+
+COLORMAPS.forEach(function (c) {
+  const opt = document.createElement("option");
+  opt.value = c.id;
+  opt.textContent = c.label;
+  colormapSel.appendChild(opt);
+});
+colormapSel.value = state.colormapId;
+
+function syncInputs() {
+  cxInput.value = state.centerX;
+  cyInput.value = state.centerY;
+  scaleInput.value = state.scale;
+  refreshBadges();
+}
+
+presetSel.addEventListener("change", function () {
+  const p = PRESETS.find(function (x) { return x.name === presetSel.value; });
+  if (!p) return;
+  state.centerX = p.cx;
+  state.centerY = p.cy;
+  state.scale = p.scale;
+  state.power = p.power;
+  powerRange.value = String(p.power);
+  document.getElementById("power-val").textContent = String(p.power);
+  syncInputs();
+  render(false);
+});
+
+powerRange.addEventListener("input", function () {
+  state.power = parseInt(powerRange.value, 10);
+  document.getElementById("power-val").textContent = String(state.power);
+  refreshBadges();
+});
+powerRange.addEventListener("change", function () { render(false); });
+
+itersRange.addEventListener("input", function () {
+  state.maxIterations = parseInt(itersRange.value, 10);
+  document.getElementById("iters-val").textContent = String(state.maxIterations);
+  refreshBadges();
+});
+itersRange.addEventListener("change", function () { render(false); });
+
+detailRange.addEventListener("input", function () {
+  state.detail = parseInt(detailRange.value, 10);
+  document.getElementById("detail-val").textContent = String(state.detail);
+  refreshBadges();
+});
+detailRange.addEventListener("change", function () { render(false); });
+
+boundRange.addEventListener("input", function () {
+  state.bound = parseInt(boundRange.value, 10);
+  document.getElementById("bound-val").textContent = String(state.bound);
+});
+boundRange.addEventListener("change", function () { render(false); });
+
+workersRange.addEventListener("input", function () {
+  state.workerCount = parseInt(workersRange.value, 10);
+  document.getElementById("workers-val").textContent = state.workerCount === 0 ? "auto" : String(state.workerCount);
+  refreshBadges();
+});
+workersRange.addEventListener("change", function () { render(false); });
+
+colormapSel.addEventListener("change", function () {
+  state.colormapId = colormapSel.value;
+  render(false);
+});
+
+progressiveChk.addEventListener("change", function () {
+  state.progressive = progressiveChk.checked;
+});
+
+autoprecChk.addEventListener("change", function () {
+  state.autoPrecision = autoprecChk.checked;
+  refreshBadges();
+  render(false);
+});
+
+cxInput.addEventListener("change", function () {
+  const v = parseFloat(cxInput.value);
+  if (!Number.isNaN(v)) { state.centerX = v; refreshBadges(); render(false); }
+});
+cyInput.addEventListener("change", function () {
+  const v = parseFloat(cyInput.value);
+  if (!Number.isNaN(v)) { state.centerY = v; refreshBadges(); render(false); }
+});
+scaleInput.addEventListener("change", function () {
+  const v = parseFloat(scaleInput.value);
+  if (!Number.isNaN(v) && v > 0) { state.scale = v; refreshBadges(); render(false); }
+});
+
+document.getElementById("btn-zoom-in").addEventListener("click", function () {
+  state.scale = Math.max(1e-30, state.scale * 0.5);
+  syncInputs();
+  render(false);
+});
+document.getElementById("btn-zoom-out").addEventListener("click", function () {
+  state.scale = state.scale * 2;
+  syncInputs();
+  render(false);
+});
+document.getElementById("btn-reset").addEventListener("click", function () {
+  const p = PRESETS[0];
+  state.centerX = p.cx;
+  state.centerY = p.cy;
+  state.scale = p.scale;
+  state.power = p.power;
+  powerRange.value = String(p.power);
+  document.getElementById("power-val").textContent = String(p.power);
+  syncInputs();
+  render(false);
+});
+
+btnRender.addEventListener("click", function () { render(false); });
+btnSave.addEventListener("click", function () { render(true); });
+btnCancel.addEventListener("click", cancelRender);
+
+/* ============================================================
+   Routing: everything lands on /Home.html (index.html is a copy of
+   it at the root), assets are served as-is
+   ============================================================ */
+const HOME_PATH = "/Home.html";
+const ASSET_RE = /\.(png|ico|jpe?g|webp|gif|svg|webmanifest|css|js|txt|xml|map)$/i;
+
+function isAssetPath(p) {
+  if (ASSET_RE.test(p)) return true;
+  return p === "/manifest.webmanifest" || p === "/robots.txt" || p === "/.nojekyll";
+}
+
+function routeToHome() {
+  const path = location.pathname.replace(/\/index\.html$/, "/");
+  if (path === HOME_PATH || path === "/" || isAssetPath(path)) return;
+  const search = location.search || "";
+  const hash = location.hash || "";
+  location.replace(HOME_PATH + search + hash);
+}
+
+routeToHome();
+
+/* ============================================================
+   Share codec -- a JavaScript port of CustomEncoder.py
+   (class CustomDeterministicEncoder, "CustomDeterministicEncoder.luau").
+
+   It turns any text into 16-character blocks joined by "-":
+     - the first block is an 8-byte header: FNV-1a hash of the data
+       (the nonce, which doubles as the per-message key) and the
+       hidden length (length XOR nonce XOR LENGTH_MASK);
+     - every further block is 8 bytes of the data, padded with
+       xorshift bytes, XOR-crypt- ed with the nonce and split into
+       nibbles, each nibble shifted by a xorshift offset so the
+       result looks random but is fully deterministic.
+   Decoding reverses it and refuses anything whose hash disagrees.
+
+   Share payloads are plain text in that envelope:
+     Fast share: {"v":1,"p":2,"c":"magma","a":1,"b":1,
+                  "x":"-0.5","y":"0","z":"1.6","i":8000,"d":8192}
+       Every value is a string, except the small integers (p, i, d,
+       a, b, v), which are read back with parseInt / truthiness.
+     Slow share: {"v":1,"t":"image","n":7,"h":3,"px":"RRGGBB..."}
+       the thumbnail as 6 hex characters per pixel.
+   ============================================================ */
+const CustomDeterministicEncoder = (function () {
+  const ALPHABET = "ZHNgKuyjx7BvVlhRoqTJU5CtmwO0zSr8k2QEIAd416aXLnPMfDFs9WpGbcei3Y";
+  const VALUES = (function () {
+    const m = {};
+    for (let i = 0; i < ALPHABET.length; i++) m[ALPHABET.charAt(i)] = i;
+    return m;
+  })();
+  const BLOCK_SIZE = 16;
+  const BYTES_PER_BLOCK = 8;
+  const MASK32 = 0xFFFFFFFF;
+  const HEADER_SEED = 0x6D2B79F5;
+  const PAYLOAD_SEED = 0xA5C31E27;
+  const LENGTH_MASK = 0xC39A7F21;
+  const FORMAT = /^[A-Za-z0-9]{16}(?:-[A-Za-z0-9]{16})+$/;
+
+  function next(state) {
+    state >>>= 0;
+    state = (state ^ (state << 13)) >>> 0;
+    state = (state ^ (state >>> 17)) >>> 0;
+    state = (state ^ (state << 5)) >>> 0;
+    return [state, state % 62];
+  }
+
+  function hash(data) {
+    let value = 0x811C9DC5;
+    for (let i = 0; i < data.length; i++) {
+      value = Math.imul((value ^ data[i]) >>> 0, 0x01000193) >>> 0;
+    }
+    return value === 0 ? 0xA341316C : value;
+  }
+
+  function crypt(data, seed) {
+    let state = seed & MASK32;
+    const out = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) {
+      let key;
+      const step = next(state);
+      state = step[0];
+      key = step[1];
+      out[i] = (data[i] ^ (key & 0xFF) ^ ((i * 73 + 41) & 0xFF)) & 0xFF;
+    }
+    return out;
+  }
+
+  function encodeBlock(block, seed) {
+    if (block.length !== BYTES_PER_BLOCK) throw new Error("Each binary block must contain exactly 8 bytes");
+    let state = seed & MASK32;
+    let out = "";
+    for (let i = 0; i < block.length; i++) {
+      const byte = block[i];
+      const nibbles = [byte >> 4, byte & 15];
+      for (let n = 0; n < 2; n++) {
+        const step = next(state);
+        state = step[0];
+        out += ALPHABET.charAt((nibbles[n] + step[1]) % 62);
+      }
+    }
+    return out;
+  }
+
+  function decodeBlock(block, seed) {
+    if (block.length !== BLOCK_SIZE) throw new Error("Every encoded block must contain exactly 16 characters");
+    let state = seed & MASK32;
+    const nibbles = [];
+    for (let i = 0; i < block.length; i++) {
+      const ch = block.charAt(i);
+      if (!Object.prototype.hasOwnProperty.call(VALUES, ch)) throw new Error("Encoded data contains an invalid character");
+      const step = next(state);
+      state = step[0];
+      const nibble = ((VALUES[ch] - step[1]) % 62 + 62) % 62;
+      if (nibble > 15) throw new Error("Encoded data is invalid or corrupted");
+      nibbles.push(nibble);
+    }
+    const out = new Uint8Array(BYTES_PER_BLOCK);
+    for (let i = 0; i < BLOCK_SIZE; i += 2) out[i / 2] = ((nibbles[i] << 4) | nibbles[i + 1]) & 0xFF;
+    return out;
+  }
+
+  function encodeBytes(data) {
+    if (!(data instanceof Uint8Array)) throw new TypeError("data must be bytes");
+    if (data.length > MASK32) throw new Error("Input is too large");
+
+    const nonce = hash(data);
+    const hiddenLength = ((data.length ^ nonce ^ LENGTH_MASK) & MASK32) >>> 0;
+    const header = new Uint8Array(8);
+    writeU32(header, 0, nonce);
+    writeU32(header, 4, hiddenLength);
+    const blocks = [encodeBlock(header, HEADER_SEED)];
+
+    const paddedSize = Math.max(8, Math.ceil(data.length / 8) * 8);
+    const padding = new Uint8Array(paddedSize);
+    padding.set(data);
+    let padState = (nonce ^ 0x9E3779B9) & MASK32;
+    for (let i = data.length; i < paddedSize; i++) {
+      const step = next(padState);
+      padState = step[0];
+      padding[i] = step[1] & 0xFF;
+    }
+
+    const encrypted = crypt(padding, (nonce ^ PAYLOAD_SEED) & MASK32);
+    for (let index = 0; index < encrypted.length; index += 8) {
+      const blockNumber = index / 8;
+      const seed = (nonce ^ PAYLOAD_SEED ^ Math.imul(blockNumber + 1, 0x45D9F3B)) & MASK32;
+      blocks.push(encodeBlock(encrypted.subarray(index, index + 8), seed));
+    }
+    return blocks.join("-");
+  }
+
+  function decodeToBytes(encoded) {
+    if (typeof encoded !== "string") throw new TypeError("Encoded input must be a string");
+    if (!FORMAT.test(encoded)) throw new Error("Invalid format: every block must be 16 alphanumeric characters");
+    const blocks = encoded.split("-");
+    const header = decodeBlock(blocks[0], HEADER_SEED);
+    const nonce = readU32(header, 0);
+    const hiddenLength = readU32(header, 4);
+    const length = ((hiddenLength ^ nonce ^ LENGTH_MASK) & MASK32) >>> 0;
+    if (length > (blocks.length - 1) * BYTES_PER_BLOCK) throw new Error("Stored length is larger than the payload");
+
+    let encrypted = new Uint8Array((blocks.length - 1) * BYTES_PER_BLOCK);
+    for (let blockNumber = 1; blockNumber < blocks.length; blockNumber++) {
+      const seed = (nonce ^ PAYLOAD_SEED ^ Math.imul(blockNumber, 0x45D9F3B)) & MASK32;
+      encrypted.set(decodeBlock(blocks[blockNumber], seed), (blockNumber - 1) * BYTES_PER_BLOCK);
+    }
+    const plain = crypt(encrypted, (nonce ^ PAYLOAD_SEED) & MASK32);
+    const result = plain.subarray(0, length);
+    if (hash(result) !== nonce) throw new Error("Encoded data is invalid or corrupted");
+    return result;
+  }
+
+  function writeU32(buf, offset, value) {
+    buf[offset] = (value >>> 24) & 0xFF;
+    buf[offset + 1] = (value >>> 16) & 0xFF;
+    buf[offset + 2] = (value >>> 8) & 0xFF;
+    buf[offset + 3] = value & 0xFF;
+  }
+
+  function readU32(buf, offset) {
+    return ((buf[offset] << 24) | (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3]) >>> 0;
+  }
+
+  function utf8Encode(text) {
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(text);
+    const out = [];
+    for (let i = 0; i < text.length; i++) {
+      let c = text.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) out.push(0xC0 | (c >> 6), 0x80 | (c & 63));
+      else out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    }
+    return new Uint8Array(out);
+  }
+
+  function utf8Decode(bytes) {
+    if (typeof TextDecoder !== "undefined") return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    let text = "";
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
+      if (b < 0x80) text += String.fromCharCode(b);
+      else if (b < 0xE0) text += String.fromCharCode(((b & 31) << 6) | (bytes[++i] & 63));
+      else text += String.fromCharCode(((b & 15) << 12) | ((bytes[++i] & 63) << 6) | (bytes[++i] & 63));
+    }
+    return text;
+  }
+
+  return {
+    ALPHABET: ALPHABET,
+    isEncoded: function (s) { return typeof s === "string" && FORMAT.test(s); },
+    encode: function (text) {
+      if (typeof text !== "string") throw new TypeError("Input must be a string");
+      return encodeBytes(utf8Encode(text));
+    },
+    decode: function (encoded) { return utf8Decode(decodeToBytes(encoded)); },
+    encodeBytes: encodeBytes,
+    decodeToBytes: decodeToBytes
+  };
+})();
+
+/* The share state as JSON text: numbers become strings so nothing is
+   rounded or clamped, and the small integers stay numbers. */
+function stateToJson(st) {
+  return JSON.stringify({
+    v: 1,
+    p: Math.round(st.power),
+    c: String(st.colormapId),
+    a: st.autoPrecision ? 1 : 0,
+    b: st.progressive ? 1 : 0,
+    x: String(st.centerX),
+    y: String(st.centerY),
+    z: String(st.scale),
+    i: Math.round(st.maxIterations),
+    d: Math.round(st.detail)
+  });
+}
+
+function jsonToState(text) {
+  const o = JSON.parse(text);
+  if (!o || o.v !== 1) return null;
+  const num = function (v) { const n = parseFloat(String(v)); return Number.isFinite(n) ? n : null; };
+  const x = num(o.x), y = num(o.y), z = num(o.z);
+  if (x === null || y === null || z === null || z <= 0) return null;
+  const power = parseInt(o.p, 10);
+  if (!(power >= 2 && power <= 8)) return null;
+  const colormap = COLORMAPS.find(function (c) { return c.id === String(o.c); });
+  return {
+    power: power,
+    colormapId: colormap ? colormap.id : COLORMAPS[0].id,
+    autoPrecision: !!o.a,
+    progressive: !!o.b,
+    centerX: x,
+    centerY: y,
+    scale: z,
+    maxIterations: parseInt(o.i, 10) || DEFAULT_ITERS,
+    detail: parseInt(o.d, 10) || DEFAULT_DETAIL,
+    bound: 2
+  };
+}
+
+const IMG_W = 7, IMG_H = 3;
+const IMG_CODE_PIXELS = IMG_W * IMG_H;   /* 21 */
+const IMG_HEX = 6;                       /* "rrggbb" per pixel */
+
+/* 21 pixels -> 126 hex characters -> JSON -> encoded blocks */
+function pixelsToImageCode(data, w, h) {
+  let hex = "";
+  for (let i = 0; i < IMG_CODE_PIXELS; i++) {
+    const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
+    hex += ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+  }
+  return CustomDeterministicEncoder.encode(JSON.stringify({ v: 1, t: "image", n: w, h: h, px: hex }));
+}
+
+function imageCodeToPixels(code) {
+  let o;
+  try { o = JSON.parse(CustomDeterministicEncoder.decode(code)); } catch (e) { return null; }
+  if (!o || o.v !== 1 || o.t !== "image" || typeof o.px !== "string") return null;
+  const n = parseInt(o.n, 10) || IMG_W;
+  const m = parseInt(o.h, 10) || IMG_H;
+  if (n * m !== IMG_CODE_PIXELS || o.px.length !== IMG_CODE_PIXELS * IMG_HEX) return null;
+  const out = new Uint8ClampedArray(IMG_CODE_PIXELS * 4);
+  for (let p = 0; p < IMG_CODE_PIXELS; p++) {
+    const v = parseInt(o.px.substr(p * IMG_HEX, IMG_HEX), 16);
+    out[p * 4] = (v >> 16) & 255;
+    out[p * 4 + 1] = (v >> 8) & 255;
+    out[p * 4 + 2] = v & 255;
+    out[p * 4 + 3] = 255;
+  }
+  return { pixels: out, w: n, h: m };
+}
+
+/* ============================================================
+   Share UI
+   ============================================================ */
+const shareUrlBox = document.getElementById("share-url");
+const shareNote = document.getElementById("share-note");
+const btnShareFast = document.getElementById("btn-share-fast");
+const btnShareSlow = document.getElementById("btn-share-slow");
+const btnShareCopy = document.getElementById("btn-share-copy");
+
+function note(msg, kind) {
+  shareNote.textContent = msg;
+  shareNote.className = "share-note" + (kind ? " " + kind : "");
+}
+
+function homeLink(params) {
+  const q = new URLSearchParams();
+  Object.keys(params).forEach(function (k) {
+    if (params[k] !== null && params[k] !== undefined) q.set(k, params[k]);
+  });
+  return location.origin + HOME_PATH + "?" + q.toString();
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (resolve) {
+    shareUrlBox.value = text;
+    shareUrlBox.select();
+    try { document.execCommand("copy"); } catch (e) { /* selection is still there */ }
+    resolve();
+  });
+}
+
+function publish(url, msg) {
+  shareUrlBox.value = url;
+  copyText(url).then(function () {
+    note(msg + " Copied to the clipboard.", "ok");
+  }, function () {
+    note(msg + " Select the box and copy it.", "ok");
+  });
+}
+
+function shareFast() {
+  let code;
+  try {
+    code = CustomDeterministicEncoder.encode(stateToJson(state));
+  } catch (e) {
+    note("Could not build the share code: " + e.message, "err");
+    return;
+  }
+  publish(homeLink({ ShareURL: code, Type: "code" }), "Fast link ready (" + code.split("-").length + " blocks).");
+}
+
+function thumbPixels() {
+  const src = document.createElement("canvas");
+  src.width = IMG_W;
+  src.height = IMG_H;
+  const sctx = src.getContext("2d");
+  sctx.drawImage(canvas, 0, 0, IMG_W, IMG_H);
+  return sctx.getImageData(0, 0, IMG_W, IMG_H).data;
+}
+
+function shareSlow() {
+  let code;
+  try {
+    code = pixelsToImageCode(thumbPixels(), IMG_W, IMG_H);
+  } catch (e) {
+    note("Could not build the image code: " + e.message, "err");
+    return;
+  }
+  publish(homeLink({ ShareURL: code, Type: "image" }),
+    "Slow link ready (" + IMG_W + "\u00d7" + IMG_H + " thumbnail, " + code.length + " chars).");
+}
+
+btnShareFast.addEventListener("click", shareFast);
+btnShareSlow.addEventListener("click", shareSlow);
+btnShareCopy.addEventListener("click", function () {
+  if (!shareUrlBox.value) { shareFast(); return; }
+  copyText(shareUrlBox.value).then(function () {
+    note("Link copied to the clipboard.", "ok");
+  }, function () {
+    note("Select the box and copy it.", "ok");
+  });
+});
+
+function showSharedImage(payload) {
+  let img;
+  try {
+    img = imageCodeToPixels(payload);
+  } catch (e) {
+    img = null;
+  }
+  if (!img) return false;
+  const small = document.createElement("canvas");
+  small.width = img.w;
+  small.height = img.h;
+  const sctx = small.getContext("2d");
+  const frame = sctx.createImageData(img.w, img.h);
+  frame.data.set(img.pixels);
+  sctx.putImageData(frame, 0, 0);
+
+  canvas.width = 640;
+  canvas.height = Math.round(640 * img.h / img.w);
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(small, 0, 0, canvas.width, canvas.height);
+  setStatus("done");
+  return true;
+}
+
+function applyShareState(st) {
+  if (!st) return false;
+  state.power = st.power;
+  state.colormapId = st.colormapId;
+  state.progressive = st.progressive;
+  state.autoPrecision = st.autoPrecision;
+  state.centerX = st.centerX;
+  state.centerY = st.centerY;
+  state.scale = st.scale;
+  state.maxIterations = st.maxIterations;
+  state.detail = st.detail;
+  state.bound = st.bound;
+
+  powerRange.value = String(st.power);
+  document.getElementById("power-val").textContent = String(st.power);
+  itersRange.value = String(st.maxIterations);
+  document.getElementById("iters-val").textContent = String(st.maxIterations);
+  detailRange.value = String(st.detail);
+  document.getElementById("detail-val").textContent = String(st.detail);
+  colormapSel.value = st.colormapId;
+  progressiveChk.checked = st.progressive;
+  autoprecChk.checked = st.autoPrecision;
+  syncInputs();
+  render(false);
+  return true;
+}
+
+function openShare() {
+  const params = new URLSearchParams(location.search);
+  const payload = params.get("ShareURL");
+  if (!payload) return false;
+  const type = (params.get("Type") || "").toLowerCase();
+
+  if (type === "image") {
+    if (showSharedImage(payload)) {
+      note("Shared picture restored from the link.", "ok");
+      return true;
+    }
+    note("That image code could not be decoded.", "err");
+    return false;
+  }
+  if (!CustomDeterministicEncoder.isEncoded(payload)) {
+    note("That share code is not in the CustomEncoder format.", "err");
+    return false;
+  }
+  let st;
+  try {
+    st = jsonToState(CustomDeterministicEncoder.decode(payload));
+  } catch (e) {
+    note("That share code could not be decoded: " + e.message, "err");
+    return false;
+  }
+  if (applyShareState(st)) {
+    note("Shared view restored from the link.", "ok");
+    return true;
+  }
+  note("That code is not a view code, so the view could not be restored.", "err");
+  return false;
+}
+
+/* ============================================================
+   Boot
+   ============================================================ */
+refreshBadges();
+setStatus("idle");
+if (!openShare()) render(false);
+</script>
+</body>
+</html>

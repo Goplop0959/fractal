@@ -6,21 +6,21 @@ progressive preview pass, a web-worker pool and PNG export.
 Static site — no build step, no server-side code. Open `index.html`, or visit the
 GitHub Pages URL.
 
-**Live:** https://goplop0959.github.io/fractal/Home
+**Live:** https://goplop0959.github.io/fractal/Home.html
 
 ## Routes
 
 | Path | What happens |
 | --- | --- |
-| `/Home` | the app |
-| any other path | redirected to `/Home` (query string kept) |
+| `/Home.html` | the app (and `/` serves the same page) |
+| any other path | redirected to `/Home.html` (query string kept) |
 | `/favicon.ico`, `/cutecat.png`, `/icon-192.png`, `/icon-512.png`, `/apple-touch-icon.png`, `/manifest.webmanifest`, `/robots.txt` | served as-is, never redirected |
 
 ## Share links
 
 ```
-/Home?ShareURL=<code>&Type=code     fast share  – settings + zoom + position
-/Home?ShareURL=<code>&Type=image    slow share  – the picture itself
+/Home.html?ShareURL=<code>&Type=code     fast share  – settings + zoom + position
+/Home.html?ShareURL=<code>&Type=image    slow share  – the picture itself
 ```
 
 ### The code format

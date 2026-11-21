@@ -1541,9 +1541,10 @@ btnSave.addEventListener("click", function () { render(true); });
 btnCancel.addEventListener("click", cancelRender);
 
 /* ============================================================
-   Routing: everything lands on /Home, assets are served as-is
+   Routing: everything lands on /Home.html (index.html is a copy of
+   it at the root), assets are served as-is
    ============================================================ */
-const HOME_PATH = "/Home";
+const HOME_PATH = "/Home.html";
 const ASSET_RE = /\.(png|ico|jpe?g|webp|gif|svg|webmanifest|css|js|txt|xml|map)$/i;
 
 function isAssetPath(p) {
@@ -1552,8 +1553,8 @@ function isAssetPath(p) {
 }
 
 function routeToHome() {
-  const path = location.pathname;
-  if (path === HOME_PATH || isAssetPath(path)) return;
+  const path = location.pathname.replace(/\/index\.html$/, "/");
+  if (path === HOME_PATH || path === "/" || isAssetPath(path)) return;
   const search = location.search || "";
   const hash = location.hash || "";
   location.replace(HOME_PATH + search + hash);
