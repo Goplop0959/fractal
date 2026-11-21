@@ -1541,26 +1541,19 @@ btnSave.addEventListener("click", function () { render(true); });
 btnCancel.addEventListener("click", cancelRender);
 
 /* ============================================================
-   Routing: everything lands on /Home.html (index.html is a copy of
-   it at the root), assets are served as-is
+   Routing: the app is always served from the repo root, and the route
+   lives in the hash -- /fractal/#/Home, /fractal/#/Home?ShareURL=...
+   GitHub Pages cannot rewrite an extensionless path, so the hash is the
+   only clean route it can serve.
    ============================================================ */
-const HOME_PATH = "/Home.html";
-/* links are built from where the site is actually served (repo subpath
-   included), so they never point at the bare domain root */
+const HOME_ROUTE = "#/Home";
 const BASE_PATH = location.pathname.replace(/[^\/]*$/, "");
-const ASSET_RE = /\.(png|ico|jpe?g|webp|gif|svg|webmanifest|css|js|txt|xml|map)$/i;
-
-function isAssetPath(p) {
-  if (ASSET_RE.test(p)) return true;
-  return p === "/manifest.webmanifest" || p === "/robots.txt" || p === "/.nojekyll";
-}
 
 function routeToHome() {
-  const path = location.pathname.replace(/\/index\.html$/, "/");
-  if (path === BASE_PATH + "Home.html" || path === BASE_PATH || isAssetPath(path)) return;
-  const search = location.search || "";
-  const hash = location.hash || "";
-  location.replace(BASE_PATH + "Home.html" + search + hash);
+  if (location.hash.indexOf("#/Home") === 0) return;
+  const tail = location.search + location.hash;
+  location.replace(BASE_PATH + HOME_ROUTE + (location.search ? "?" + location.search.slice(1) : ""));
+  void tail;
 }
 
 routeToHome();
@@ -1855,7 +1848,7 @@ function homeLink(params) {
   Object.keys(params).forEach(function (k) {
     if (params[k] !== null && params[k] !== undefined) q.set(k, params[k]);
   });
-  return location.origin + BASE_PATH + "Home.html?" + q.toString();
+  return location.origin + BASE_PATH + HOME_ROUTE + "?" + q.toString();
 }
 
 function copyText(text) {
@@ -1975,7 +1968,9 @@ function applyShareState(st) {
 }
 
 function openShare() {
-  const params = new URLSearchParams(location.search);
+  const h = location.hash || "";
+  const qAt = h.indexOf("?");
+  const params = new URLSearchParams(qAt >= 0 ? h.slice(qAt + 1) : location.search);
   const payload = params.get("ShareURL");
   if (!payload) return false;
   const type = (params.get("Type") || "").toLowerCase();
