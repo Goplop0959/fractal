@@ -1,0 +1,15 @@
+{
+  "name": "Fractal — Multibrot Deep Zoom",
+  "short_name": "Fractal",
+  "description": "Multibrot deep zoom renderer: progressive preview, worker pool, PNG export.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0e1c",
+  "theme_color": "#0b0e1c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "cutecat.png", "sizes": "556x614", "type": "image/png" }
+  ]
+}
