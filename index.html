@@ -1547,13 +1547,13 @@ btnCancel.addEventListener("click", cancelRender);
    only clean route it can serve.
    ============================================================ */
 const HOME_ROUTE = "#/Home";
-const BASE_PATH = location.pathname.replace(/[^\/]*$/, "");
+/* fixed, not derived: this site always lives at /fractal/ */
+const SITE_BASE = "/fractal/";
 
 function routeToHome() {
   if (location.hash.indexOf("#/Home") === 0) return;
-  const tail = location.search + location.hash;
-  location.replace(BASE_PATH + HOME_ROUTE + (location.search ? "?" + location.search.slice(1) : ""));
-  void tail;
+  location.replace(SITE_BASE + HOME_ROUTE +
+    (location.search ? "?" + location.search.slice(1) : ""));
 }
 
 routeToHome();
@@ -1848,7 +1848,7 @@ function homeLink(params) {
   Object.keys(params).forEach(function (k) {
     if (params[k] !== null && params[k] !== undefined) q.set(k, params[k]);
   });
-  return location.origin + BASE_PATH + HOME_ROUTE + "?" + q.toString();
+  return location.origin + SITE_BASE + HOME_ROUTE + "?" + q.toString();
 }
 
 function copyText(text) {
