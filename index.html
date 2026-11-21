@@ -492,6 +492,54 @@
     color: var(--amber);
   }
 
+  .share-card {
+    margin-top: 16px;
+    background: rgba(18, 22, 43, 0.72);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px 18px;
+  }
+  .share-card h3 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+  .share-card p.sub2 {
+    margin: 0 0 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+  .share-card p.sub2 b { color: var(--text); font-weight: 600; }
+  .share-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .share-btns .btn { flex: 1 1 40%; }
+  .share-url {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px;
+    min-height: 58px;
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    word-break: break-all;
+  }
+  .share-note {
+    margin: 8px 0 0;
+    min-height: 16px;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .share-note.ok { color: var(--emerald); }
+  .share-note.err { color: var(--rose); }
+
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 999px; }
@@ -678,6 +726,20 @@
         <button class="btn btn-ghost" id="btn-save">Render &amp; Save PNG</button>
         <button class="btn btn-danger" id="btn-cancel" style="display:none;">Cancel render</button>
         <p class="foot">Saves as <code>fractal-&lt;uuid&gt;.png</code></p>
+      </div>
+
+      <div class="share-card">
+        <h3>Share this view</h3>
+        <p class="sub2">Two options, both copied to the clipboard as one link:<br />
+          <b>Fast</b> &mdash; the settings, position and zoom as text (opens and renders exactly).<br />
+          <b>Slow</b> &mdash; a 7&times;3 thumbnail of the picture, in the same envelope.</p>
+        <div class="share-btns">
+          <button class="btn btn-ghost" id="btn-share-fast">Fast share</button>
+          <button class="btn btn-ghost" id="btn-share-slow">Slow share</button>
+          <button class="btn btn-ghost" id="btn-share-copy">Copy URL</button>
+        </div>
+        <textarea class="share-url" id="share-url" readonly rows="3" placeholder="Pick a share option to build a link&hellip;"></textarea>
+        <p class="share-note" id="share-note"></p>
       </div>
     </aside>
   </div>
@@ -1479,11 +1541,474 @@ btnSave.addEventListener("click", function () { render(true); });
 btnCancel.addEventListener("click", cancelRender);
 
 /* ============================================================
+   Routing: everything lands on /Home, assets are served as-is
+   ============================================================ */
+const HOME_PATH = "/Home";
+const ASSET_RE = /\.(png|ico|jpe?g|webp|gif|svg|webmanifest|css|js|txt|xml|map)$/i;
+
+function isAssetPath(p) {
+  if (ASSET_RE.test(p)) return true;
+  return p === "/manifest.webmanifest" || p === "/robots.txt" || p === "/.nojekyll";
+}
+
+function routeToHome() {
+  const path = location.pathname;
+  if (path === HOME_PATH || isAssetPath(path)) return;
+  const search = location.search || "";
+  const hash = location.hash || "";
+  location.replace(HOME_PATH + search + hash);
+}
+
+routeToHome();
+
+/* ============================================================
+   Share codec -- a JavaScript port of CustomEncoder.py
+   (class CustomDeterministicEncoder, "CustomDeterministicEncoder.luau").
+
+   It turns any text into 16-character blocks joined by "-":
+     - the first block is an 8-byte header: FNV-1a hash of the data
+       (the nonce, which doubles as the per-message key) and the
+       hidden length (length XOR nonce XOR LENGTH_MASK);
+     - every further block is 8 bytes of the data, padded with
+       xorshift bytes, XOR-crypt- ed with the nonce and split into
+       nibbles, each nibble shifted by a xorshift offset so the
+       result looks random but is fully deterministic.
+   Decoding reverses it and refuses anything whose hash disagrees.
+
+   Share payloads are plain text in that envelope:
+     Fast share: {"v":1,"p":2,"c":"magma","a":1,"b":1,
+                  "x":"-0.5","y":"0","z":"1.6","i":8000,"d":8192}
+       Every value is a string, except the small integers (p, i, d,
+       a, b, v), which are read back with parseInt / truthiness.
+     Slow share: {"v":1,"t":"image","n":7,"h":3,"px":"RRGGBB..."}
+       the thumbnail as 6 hex characters per pixel.
+   ============================================================ */
+const CustomDeterministicEncoder = (function () {
+  const ALPHABET = "ZHNgKuyjx7BvVlhRoqTJU5CtmwO0zSr8k2QEIAd416aXLnPMfDFs9WpGbcei3Y";
+  const VALUES = (function () {
+    const m = {};
+    for (let i = 0; i < ALPHABET.length; i++) m[ALPHABET.charAt(i)] = i;
+    return m;
+  })();
+  const BLOCK_SIZE = 16;
+  const BYTES_PER_BLOCK = 8;
+  const MASK32 = 0xFFFFFFFF;
+  const HEADER_SEED = 0x6D2B79F5;
+  const PAYLOAD_SEED = 0xA5C31E27;
+  const LENGTH_MASK = 0xC39A7F21;
+  const FORMAT = /^[A-Za-z0-9]{16}(?:-[A-Za-z0-9]{16})+$/;
+
+  function next(state) {
+    state >>>= 0;
+    state = (state ^ (state << 13)) >>> 0;
+    state = (state ^ (state >>> 17)) >>> 0;
+    state = (state ^ (state << 5)) >>> 0;
+    return [state, state % 62];
+  }
+
+  function hash(data) {
+    let value = 0x811C9DC5;
+    for (let i = 0; i < data.length; i++) {
+      value = Math.imul((value ^ data[i]) >>> 0, 0x01000193) >>> 0;
+    }
+    return value === 0 ? 0xA341316C : value;
+  }
+
+  function crypt(data, seed) {
+    let state = seed & MASK32;
+    const out = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) {
+      let key;
+      const step = next(state);
+      state = step[0];
+      key = step[1];
+      out[i] = (data[i] ^ (key & 0xFF) ^ ((i * 73 + 41) & 0xFF)) & 0xFF;
+    }
+    return out;
+  }
+
+  function encodeBlock(block, seed) {
+    if (block.length !== BYTES_PER_BLOCK) throw new Error("Each binary block must contain exactly 8 bytes");
+    let state = seed & MASK32;
+    let out = "";
+    for (let i = 0; i < block.length; i++) {
+      const byte = block[i];
+      const nibbles = [byte >> 4, byte & 15];
+      for (let n = 0; n < 2; n++) {
+        const step = next(state);
+        state = step[0];
+        out += ALPHABET.charAt((nibbles[n] + step[1]) % 62);
+      }
+    }
+    return out;
+  }
+
+  function decodeBlock(block, seed) {
+    if (block.length !== BLOCK_SIZE) throw new Error("Every encoded block must contain exactly 16 characters");
+    let state = seed & MASK32;
+    const nibbles = [];
+    for (let i = 0; i < block.length; i++) {
+      const ch = block.charAt(i);
+      if (!Object.prototype.hasOwnProperty.call(VALUES, ch)) throw new Error("Encoded data contains an invalid character");
+      const step = next(state);
+      state = step[0];
+      const nibble = ((VALUES[ch] - step[1]) % 62 + 62) % 62;
+      if (nibble > 15) throw new Error("Encoded data is invalid or corrupted");
+      nibbles.push(nibble);
+    }
+    const out = new Uint8Array(BYTES_PER_BLOCK);
+    for (let i = 0; i < BLOCK_SIZE; i += 2) out[i / 2] = ((nibbles[i] << 4) | nibbles[i + 1]) & 0xFF;
+    return out;
+  }
+
+  function encodeBytes(data) {
+    if (!(data instanceof Uint8Array)) throw new TypeError("data must be bytes");
+    if (data.length > MASK32) throw new Error("Input is too large");
+
+    const nonce = hash(data);
+    const hiddenLength = ((data.length ^ nonce ^ LENGTH_MASK) & MASK32) >>> 0;
+    const header = new Uint8Array(8);
+    writeU32(header, 0, nonce);
+    writeU32(header, 4, hiddenLength);
+    const blocks = [encodeBlock(header, HEADER_SEED)];
+
+    const paddedSize = Math.max(8, Math.ceil(data.length / 8) * 8);
+    const padding = new Uint8Array(paddedSize);
+    padding.set(data);
+    let padState = (nonce ^ 0x9E3779B9) & MASK32;
+    for (let i = data.length; i < paddedSize; i++) {
+      const step = next(padState);
+      padState = step[0];
+      padding[i] = step[1] & 0xFF;
+    }
+
+    const encrypted = crypt(padding, (nonce ^ PAYLOAD_SEED) & MASK32);
+    for (let index = 0; index < encrypted.length; index += 8) {
+      const blockNumber = index / 8;
+      const seed = (nonce ^ PAYLOAD_SEED ^ Math.imul(blockNumber + 1, 0x45D9F3B)) & MASK32;
+      blocks.push(encodeBlock(encrypted.subarray(index, index + 8), seed));
+    }
+    return blocks.join("-");
+  }
+
+  function decodeToBytes(encoded) {
+    if (typeof encoded !== "string") throw new TypeError("Encoded input must be a string");
+    if (!FORMAT.test(encoded)) throw new Error("Invalid format: every block must be 16 alphanumeric characters");
+    const blocks = encoded.split("-");
+    const header = decodeBlock(blocks[0], HEADER_SEED);
+    const nonce = readU32(header, 0);
+    const hiddenLength = readU32(header, 4);
+    const length = ((hiddenLength ^ nonce ^ LENGTH_MASK) & MASK32) >>> 0;
+    if (length > (blocks.length - 1) * BYTES_PER_BLOCK) throw new Error("Stored length is larger than the payload");
+
+    let encrypted = new Uint8Array((blocks.length - 1) * BYTES_PER_BLOCK);
+    for (let blockNumber = 1; blockNumber < blocks.length; blockNumber++) {
+      const seed = (nonce ^ PAYLOAD_SEED ^ Math.imul(blockNumber, 0x45D9F3B)) & MASK32;
+      encrypted.set(decodeBlock(blocks[blockNumber], seed), (blockNumber - 1) * BYTES_PER_BLOCK);
+    }
+    const plain = crypt(encrypted, (nonce ^ PAYLOAD_SEED) & MASK32);
+    const result = plain.subarray(0, length);
+    if (hash(result) !== nonce) throw new Error("Encoded data is invalid or corrupted");
+    return result;
+  }
+
+  function writeU32(buf, offset, value) {
+    buf[offset] = (value >>> 24) & 0xFF;
+    buf[offset + 1] = (value >>> 16) & 0xFF;
+    buf[offset + 2] = (value >>> 8) & 0xFF;
+    buf[offset + 3] = value & 0xFF;
+  }
+
+  function readU32(buf, offset) {
+    return ((buf[offset] << 24) | (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3]) >>> 0;
+  }
+
+  function utf8Encode(text) {
+    if (typeof TextEncoder !== "undefined") return new TextEncoder().encode(text);
+    const out = [];
+    for (let i = 0; i < text.length; i++) {
+      let c = text.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) out.push(0xC0 | (c >> 6), 0x80 | (c & 63));
+      else out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    }
+    return new Uint8Array(out);
+  }
+
+  function utf8Decode(bytes) {
+    if (typeof TextDecoder !== "undefined") return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    let text = "";
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
+      if (b < 0x80) text += String.fromCharCode(b);
+      else if (b < 0xE0) text += String.fromCharCode(((b & 31) << 6) | (bytes[++i] & 63));
+      else text += String.fromCharCode(((b & 15) << 12) | ((bytes[++i] & 63) << 6) | (bytes[++i] & 63));
+    }
+    return text;
+  }
+
+  return {
+    ALPHABET: ALPHABET,
+    isEncoded: function (s) { return typeof s === "string" && FORMAT.test(s); },
+    encode: function (text) {
+      if (typeof text !== "string") throw new TypeError("Input must be a string");
+      return encodeBytes(utf8Encode(text));
+    },
+    decode: function (encoded) { return utf8Decode(decodeToBytes(encoded)); },
+    encodeBytes: encodeBytes,
+    decodeToBytes: decodeToBytes
+  };
+})();
+
+/* The share state as JSON text: numbers become strings so nothing is
+   rounded or clamped, and the small integers stay numbers. */
+function stateToJson(st) {
+  return JSON.stringify({
+    v: 1,
+    p: Math.round(st.power),
+    c: String(st.colormapId),
+    a: st.autoPrecision ? 1 : 0,
+    b: st.progressive ? 1 : 0,
+    x: String(st.centerX),
+    y: String(st.centerY),
+    z: String(st.scale),
+    i: Math.round(st.maxIterations),
+    d: Math.round(st.detail)
+  });
+}
+
+function jsonToState(text) {
+  const o = JSON.parse(text);
+  if (!o || o.v !== 1) return null;
+  const num = function (v) { const n = parseFloat(String(v)); return Number.isFinite(n) ? n : null; };
+  const x = num(o.x), y = num(o.y), z = num(o.z);
+  if (x === null || y === null || z === null || z <= 0) return null;
+  const power = parseInt(o.p, 10);
+  if (!(power >= 2 && power <= 8)) return null;
+  const colormap = COLORMAPS.find(function (c) { return c.id === String(o.c); });
+  return {
+    power: power,
+    colormapId: colormap ? colormap.id : COLORMAPS[0].id,
+    autoPrecision: !!o.a,
+    progressive: !!o.b,
+    centerX: x,
+    centerY: y,
+    scale: z,
+    maxIterations: parseInt(o.i, 10) || DEFAULT_ITERS,
+    detail: parseInt(o.d, 10) || DEFAULT_DETAIL,
+    bound: 2
+  };
+}
+
+const IMG_W = 7, IMG_H = 3;
+const IMG_CODE_PIXELS = IMG_W * IMG_H;   /* 21 */
+const IMG_HEX = 6;                       /* "rrggbb" per pixel */
+
+/* 21 pixels -> 126 hex characters -> JSON -> encoded blocks */
+function pixelsToImageCode(data, w, h) {
+  let hex = "";
+  for (let i = 0; i < IMG_CODE_PIXELS; i++) {
+    const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2];
+    hex += ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+  }
+  return CustomDeterministicEncoder.encode(JSON.stringify({ v: 1, t: "image", n: w, h: h, px: hex }));
+}
+
+function imageCodeToPixels(code) {
+  let o;
+  try { o = JSON.parse(CustomDeterministicEncoder.decode(code)); } catch (e) { return null; }
+  if (!o || o.v !== 1 || o.t !== "image" || typeof o.px !== "string") return null;
+  const n = parseInt(o.n, 10) || IMG_W;
+  const m = parseInt(o.h, 10) || IMG_H;
+  if (n * m !== IMG_CODE_PIXELS || o.px.length !== IMG_CODE_PIXELS * IMG_HEX) return null;
+  const out = new Uint8ClampedArray(IMG_CODE_PIXELS * 4);
+  for (let p = 0; p < IMG_CODE_PIXELS; p++) {
+    const v = parseInt(o.px.substr(p * IMG_HEX, IMG_HEX), 16);
+    out[p * 4] = (v >> 16) & 255;
+    out[p * 4 + 1] = (v >> 8) & 255;
+    out[p * 4 + 2] = v & 255;
+    out[p * 4 + 3] = 255;
+  }
+  return { pixels: out, w: n, h: m };
+}
+
+/* ============================================================
+   Share UI
+   ============================================================ */
+const shareUrlBox = document.getElementById("share-url");
+const shareNote = document.getElementById("share-note");
+const btnShareFast = document.getElementById("btn-share-fast");
+const btnShareSlow = document.getElementById("btn-share-slow");
+const btnShareCopy = document.getElementById("btn-share-copy");
+
+function note(msg, kind) {
+  shareNote.textContent = msg;
+  shareNote.className = "share-note" + (kind ? " " + kind : "");
+}
+
+function homeLink(params) {
+  const q = new URLSearchParams();
+  Object.keys(params).forEach(function (k) {
+    if (params[k] !== null && params[k] !== undefined) q.set(k, params[k]);
+  });
+  return location.origin + HOME_PATH + "?" + q.toString();
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (resolve) {
+    shareUrlBox.value = text;
+    shareUrlBox.select();
+    try { document.execCommand("copy"); } catch (e) { /* selection is still there */ }
+    resolve();
+  });
+}
+
+function publish(url, msg) {
+  shareUrlBox.value = url;
+  copyText(url).then(function () {
+    note(msg + " Copied to the clipboard.", "ok");
+  }, function () {
+    note(msg + " Select the box and copy it.", "ok");
+  });
+}
+
+function shareFast() {
+  let code;
+  try {
+    code = CustomDeterministicEncoder.encode(stateToJson(state));
+  } catch (e) {
+    note("Could not build the share code: " + e.message, "err");
+    return;
+  }
+  publish(homeLink({ ShareURL: code, Type: "code" }), "Fast link ready (" + code.split("-").length + " blocks).");
+}
+
+function thumbPixels() {
+  const src = document.createElement("canvas");
+  src.width = IMG_W;
+  src.height = IMG_H;
+  const sctx = src.getContext("2d");
+  sctx.drawImage(canvas, 0, 0, IMG_W, IMG_H);
+  return sctx.getImageData(0, 0, IMG_W, IMG_H).data;
+}
+
+function shareSlow() {
+  let code;
+  try {
+    code = pixelsToImageCode(thumbPixels(), IMG_W, IMG_H);
+  } catch (e) {
+    note("Could not build the image code: " + e.message, "err");
+    return;
+  }
+  publish(homeLink({ ShareURL: code, Type: "image" }),
+    "Slow link ready (" + IMG_W + "\u00d7" + IMG_H + " thumbnail, " + code.length + " chars).");
+}
+
+btnShareFast.addEventListener("click", shareFast);
+btnShareSlow.addEventListener("click", shareSlow);
+btnShareCopy.addEventListener("click", function () {
+  if (!shareUrlBox.value) { shareFast(); return; }
+  copyText(shareUrlBox.value).then(function () {
+    note("Link copied to the clipboard.", "ok");
+  }, function () {
+    note("Select the box and copy it.", "ok");
+  });
+});
+
+function showSharedImage(payload) {
+  let img;
+  try {
+    img = imageCodeToPixels(payload);
+  } catch (e) {
+    img = null;
+  }
+  if (!img) return false;
+  const small = document.createElement("canvas");
+  small.width = img.w;
+  small.height = img.h;
+  const sctx = small.getContext("2d");
+  const frame = sctx.createImageData(img.w, img.h);
+  frame.data.set(img.pixels);
+  sctx.putImageData(frame, 0, 0);
+
+  canvas.width = 640;
+  canvas.height = Math.round(640 * img.h / img.w);
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(small, 0, 0, canvas.width, canvas.height);
+  setStatus("done");
+  return true;
+}
+
+function applyShareState(st) {
+  if (!st) return false;
+  state.power = st.power;
+  state.colormapId = st.colormapId;
+  state.progressive = st.progressive;
+  state.autoPrecision = st.autoPrecision;
+  state.centerX = st.centerX;
+  state.centerY = st.centerY;
+  state.scale = st.scale;
+  state.maxIterations = st.maxIterations;
+  state.detail = st.detail;
+  state.bound = st.bound;
+
+  powerRange.value = String(st.power);
+  document.getElementById("power-val").textContent = String(st.power);
+  itersRange.value = String(st.maxIterations);
+  document.getElementById("iters-val").textContent = String(st.maxIterations);
+  detailRange.value = String(st.detail);
+  document.getElementById("detail-val").textContent = String(st.detail);
+  colormapSel.value = st.colormapId;
+  progressiveChk.checked = st.progressive;
+  autoprecChk.checked = st.autoPrecision;
+  syncInputs();
+  render(false);
+  return true;
+}
+
+function openShare() {
+  const params = new URLSearchParams(location.search);
+  const payload = params.get("ShareURL");
+  if (!payload) return false;
+  const type = (params.get("Type") || "").toLowerCase();
+
+  if (type === "image") {
+    if (showSharedImage(payload)) {
+      note("Shared picture restored from the link.", "ok");
+      return true;
+    }
+    note("That image code could not be decoded.", "err");
+    return false;
+  }
+  if (!CustomDeterministicEncoder.isEncoded(payload)) {
+    note("That share code is not in the CustomEncoder format.", "err");
+    return false;
+  }
+  let st;
+  try {
+    st = jsonToState(CustomDeterministicEncoder.decode(payload));
+  } catch (e) {
+    note("That share code could not be decoded: " + e.message, "err");
+    return false;
+  }
+  if (applyShareState(st)) {
+    note("Shared view restored from the link.", "ok");
+    return true;
+  }
+  note("That code is not a view code, so the view could not be restored.", "err");
+  return false;
+}
+
+/* ============================================================
    Boot
    ============================================================ */
 refreshBadges();
 setStatus("idle");
-render(false);
+if (!openShare()) render(false);
 </script>
 </body>
 </html>
