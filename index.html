@@ -1545,6 +1545,9 @@ btnCancel.addEventListener("click", cancelRender);
    it at the root), assets are served as-is
    ============================================================ */
 const HOME_PATH = "/Home.html";
+/* links are built from where the site is actually served (repo subpath
+   included), so they never point at the bare domain root */
+const BASE_PATH = location.pathname.replace(/[^\/]*$/, "");
 const ASSET_RE = /\.(png|ico|jpe?g|webp|gif|svg|webmanifest|css|js|txt|xml|map)$/i;
 
 function isAssetPath(p) {
@@ -1554,10 +1557,10 @@ function isAssetPath(p) {
 
 function routeToHome() {
   const path = location.pathname.replace(/\/index\.html$/, "/");
-  if (path === HOME_PATH || path === "/" || isAssetPath(path)) return;
+  if (path === BASE_PATH + "Home.html" || path === BASE_PATH || isAssetPath(path)) return;
   const search = location.search || "";
   const hash = location.hash || "";
-  location.replace(HOME_PATH + search + hash);
+  location.replace(BASE_PATH + "Home.html" + search + hash);
 }
 
 routeToHome();
@@ -1852,7 +1855,7 @@ function homeLink(params) {
   Object.keys(params).forEach(function (k) {
     if (params[k] !== null && params[k] !== undefined) q.set(k, params[k]);
   });
-  return location.origin + HOME_PATH + "?" + q.toString();
+  return location.origin + BASE_PATH + "Home.html?" + q.toString();
 }
 
 function copyText(text) {
